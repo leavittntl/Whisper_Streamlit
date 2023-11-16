@@ -1,5 +1,6 @@
 import streamlit as st
 import whisper
+import os
 
 # Initialize the model to None and load it on demand
 model = None
@@ -8,11 +9,11 @@ def load_model(model_size='tiny'):
     global model
     model = whisper.load_model(model_size)
 
-def transcribe_audio(audio_file):
+def transcribe_audio(audio_file_path):
     global model
     if not model:
         load_model()  # Load the model if it hasn't been loaded already
-    return model.transcribe(audio_file)
+    return model.transcribe(audio_file_path)
 
 def main():
     st.title('Audio Transcription with OpenAI Whisper')
@@ -22,7 +23,7 @@ def main():
 
     if audio_file is not None:
         # Display an audio player widget
-        st.audio(audio_file, format='audio/webm')  # Use the appropriate audio format
+        st.audio(audio_file, format='audio/webm')
 
         # Confirm before transcribing
         if st.button('Transcribe Audio'):
@@ -37,10 +38,30 @@ def main():
                     # Transcribe the audio
                     result = transcribe_audio(audio_file_path)
                     
-                    # Display the transcription with timestamps
+                    # Write the transcription text to a string
+                    transcription_text = ''
                     for segment in result["segments"]:
-                        st.write(f"{segment['start']} - {segment['end']}: {segment['text']}")
+                        transcription_text += f"{segment['start']} - {segment['end']}: {segment['text']}\n"
+                    
+                    # Display the transcription with timestamps
+                    st.text_area('Transcription', transcription_text, height=300)
+                    
+                    # Let the user download the transcription
+                    st.download_button(
+                        label="Download Transcription",
+                        data=transcription_text,
+                        file_name="transcription.txt",
+                        mime="text/plain"
+                    )
+                    
+                    # Clean up the audio file saved on disk
+                    if os.path.exists(audio_file_path):
+                        os.remove(audio_file_path)
+                    
             except Exception as e:
+                # Clean up the audio file saved on disk in case of an error
+                if os.path.exists(audio_file_path):
+                    os.remove(audio_file_path)
                 # If an error occurs, display the error message
                 st.error(f'An error occurred during transcription: {e}')
 
